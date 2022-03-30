@@ -164,6 +164,7 @@ EndDeviceLorawanMac::Send (Ptr<Packet> packet)
   if (netxTxDelay != Seconds (0))
     {
       postponeTransmission (netxTxDelay, packet);
+      m_postponeTransmission  (packet);
       return;
     }
 
@@ -532,7 +533,7 @@ EndDeviceLorawanMac::GetNextTransmissionDelay (void)
   // Pick a random channel to transmit on
   std::vector<Ptr<LogicalLoraChannel> > logicalChannels;
   logicalChannels = m_channelHelper.GetEnabledChannelList ();                 // Use a separate list to do the shuffle
-  //logicalChannels = Shuffle (logicalChannels);
+  logicalChannels = Shuffle (logicalChannels);
 
 
   Time waitingTime = Time::Max ();

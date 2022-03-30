@@ -60,6 +60,13 @@ PeriodicSenderHelper::SetAttribute (std::string name, const AttributeValue &valu
   m_factory.Set (name, value);
 }
 
+void
+PeriodicSenderHelper::SetInitialDelayLimit (double low, double high)
+{
+  m_initialDelay->SetAttribute ("Min", DoubleValue(low));
+  m_initialDelay->SetAttribute ("Max", DoubleValue(high));
+}
+
 ApplicationContainer
 PeriodicSenderHelper::Install (Ptr<Node> node) const
 {
@@ -118,7 +125,8 @@ PeriodicSenderHelper::InstallPriv (Ptr<Node> node) const
   NS_LOG_DEBUG ("Created an application with interval = " <<
                 interval.GetHours () << " hours");
 
-  app->SetInitialDelay (Seconds (m_initialDelay->GetValue (0, interval.GetSeconds ())));
+  app->SetInitialDelay (Seconds (m_initialDelay->GetValue ()));
+  //app->SetInitialDelay (Seconds (m_initialDelay->GetValue (0, interval.GetSeconds ())));
   app->SetPacketSize (m_pktSize);
   if (m_pktSizeRV)
     {

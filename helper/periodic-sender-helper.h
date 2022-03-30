@@ -63,6 +63,8 @@ public:
 
   void SetPacketSizeRandomVariable (Ptr <RandomVariableStream> rv);
 
+  void SetInitialDelayLimit (double low, double high);
+
   void SetPacketSize (uint8_t size);
 
 

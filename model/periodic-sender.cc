@@ -43,7 +43,12 @@ PeriodicSender::GetTypeId (void)
                    TimeValue (Seconds (0)),
                    MakeTimeAccessor (&PeriodicSender::GetInterval,
                                      &PeriodicSender::SetInterval),
-                   MakeTimeChecker ());
+                   MakeTimeChecker ())
+    .AddTraceSource ("PeriodicSentMessage",
+                     "Trace source indicating a packet "
+                     "went from Periodic sender to MAC layer",
+                     MakeTraceSourceAccessor (&PeriodicSender::m_periodPktSentToMac),
+                     "ns3::Packet::TracedCallback");
   // .AddAttribute ("PacketSizeRandomVariable", "The random variable that determines the shape of the packet size, in bytes",
   //                StringValue ("ns3::UniformRandomVariable[Min=0,Max=10]"),
   //                MakePointerAccessor (&PeriodicSender::m_pktSizeRV),
@@ -119,6 +124,7 @@ PeriodicSender::SendPacket (void)
       packet = Create<Packet> (m_basePktSize);
     }
   m_mac->Send (packet);
+  m_periodPktSentToMac(packet);
 
   // Schedule the next SendPacket event
   m_sendEvent = Simulator::Schedule (m_interval, &PeriodicSender::SendPacket,

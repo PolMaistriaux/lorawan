@@ -230,6 +230,8 @@ protected:
    */
   TracedCallback<Ptr<Packet const> > m_sentNewPacket;
 
+
+  TracedCallback<Ptr<Packet const> > m_postponeTransmission;
   /**
    * The PHY instance that sits under this MAC layer.
    */

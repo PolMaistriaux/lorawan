@@ -140,6 +140,7 @@ GatewayLoraPhy::AddReceptionPath ()
   NS_LOG_FUNCTION_NOARGS ();
 
   m_receptionPaths.push_back (Create<GatewayLoraPhy::ReceptionPath> ());
+  NS_LOG_INFO ("Reception path added");
 }
 
 void

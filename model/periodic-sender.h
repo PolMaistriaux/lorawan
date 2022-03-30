@@ -79,6 +79,8 @@ public:
    */
   void StopApplication (void);
 
+  TracedCallback<Ptr<const Packet> > m_periodPktSentToMac;
+
 private:
   /**
    * The interval between to consecutive send events

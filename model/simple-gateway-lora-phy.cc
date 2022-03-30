@@ -151,6 +151,7 @@ SimpleGatewayLoraPhy::StartReceive (Ptr<Packet> packet, double rxPowerDbm, uint8
   // Cycle over the receive paths to check availability to receive the packet
   std::list<Ptr<SimpleGatewayLoraPhy::ReceptionPath>>::iterator it;
 
+  int n_receptionPath = 0;
   for (it = m_receptionPaths.begin (); it != m_receptionPaths.end (); ++it)
     {
       Ptr<SimpleGatewayLoraPhy::ReceptionPath> currentPath = *it;
@@ -184,12 +185,12 @@ SimpleGatewayLoraPhy::StartReceive (Ptr<Packet> packet, double rxPowerDbm, uint8
             }
           else // We have sufficient sensitivity to start receiving
             {
-              NS_LOG_INFO ("Scheduling reception of a packet, "
-                           << "occupying one demodulator");
-
               // Block this resource
               currentPath->LockOnEvent (event);
               m_occupiedReceptionPaths++;
+
+              NS_LOG_INFO ("Scheduling reception of a packet, "
+                           << "occupying one demodulator, total occupied : " << m_occupiedReceptionPaths );
 
               // Schedule the end of the reception of the packet
               EventId endReceiveEventId =
@@ -201,11 +202,12 @@ SimpleGatewayLoraPhy::StartReceive (Ptr<Packet> packet, double rxPowerDbm, uint8
               return;
             }
         }
+      n_receptionPath ++;
     }
   // If we get to this point, there are no demodulators we can use
   NS_LOG_INFO ("Dropping packet reception of packet with sf = "
                << unsigned (sf) << " and frequency " << frequencyMHz
-               << "MHz because no suitable demodulator was found");
+               << "MHz because no suitable demodulator was found (" << n_receptionPath <<" paths tested)");
 
   // Fire the trace source
   if (m_device)

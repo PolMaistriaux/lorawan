@@ -308,7 +308,10 @@ LoraInterferenceHelper::IsDestroyedByInterference (Ptr<LoraInterferenceHelper::E
       Time overlap = GetOverlapTime (event, interferer);
 
       NS_LOG_DEBUG ("The two events overlap for " << overlap.GetSeconds () << " s.");
-
+      if(overlap.GetMicroSeconds () > 0)
+      {
+        NS_LOG_WARN  ("Overlapping Events :  " << overlap.GetSeconds () << " s. on SF: " << unsigned(interfererSf) << " and Freq: " << frequency);
+      }
       // Compute the equivalent energy of the interference
       // Power [mW] = 10^(Power[dBm]/10)
       // Power [W] = Power [mW] / 1000
@@ -349,6 +352,7 @@ LoraInterferenceHelper::IsDestroyedByInterference (Ptr<LoraInterferenceHelper::E
       else
         {
           NS_LOG_DEBUG ("Packet destroyed by interference with SF" << unsigned(currentSf));
+          NS_LOG_WARN("Pkt destroyed interf (SF:" << unsigned(currentSf) << " Freq:" << frequency <<")");
 
           return currentSf;
         }

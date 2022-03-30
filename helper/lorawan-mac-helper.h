@@ -55,6 +55,7 @@ public:
     AS923MHz,
     SouthKorea,
     SingleChannel,
+    Custom,
     ALOHA
   };
 
@@ -71,6 +72,14 @@ public:
    * \param v the value of the attribute.
    */
   void Set (std::string name, const AttributeValue &v);
+
+    /**
+   * Set an attribute of the underlying MAC object.
+   *
+   * \param name the name of the attribute to set.
+   * \param v the value of the attribute.
+   */
+  void SetDutyCycleCustom (double dutyCycle);
 
   /**
    * Set the address generator to use for creation of these nodes.
@@ -117,7 +126,14 @@ public:
                                                                 NodeContainer gateways,
                                                                 std::vector<double> distribution);
 
+  void SetMacMaxReceptionPaths (int maxReceptionPaths);
+
 private:
+
+  void ConfigureForCustomSituation (Ptr<ClassAEndDeviceLorawanMac> edMac) const;
+  void ConfigureForCustomSituation (Ptr<GatewayLorawanMac> gwMac) const;
+  void ApplyCustomConfigurations (Ptr<LorawanMac> lorawanMac) const;
+  
   /**
    * Perform region-specific configurations for the 868 MHz EU band.
    */
@@ -170,6 +186,8 @@ private:
   Ptr<LoraDeviceAddressGenerator> m_addrGen; //!< Pointer to the address generator to use
   enum DeviceType m_deviceType; //!< The kind of device to install
   enum Regions m_region; //!< The region in which the device will operate
+  int m_macMaxReceptionPaths;
+  double m_customDutyCycle;
 };
 
 } // namespace lorawan

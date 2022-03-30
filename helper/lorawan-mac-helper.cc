@@ -30,7 +30,7 @@ namespace lorawan {
 
 NS_LOG_COMPONENT_DEFINE ("LorawanMacHelper");
 
-LorawanMacHelper::LorawanMacHelper () : m_region (LorawanMacHelper::EU)
+LorawanMacHelper::LorawanMacHelper () : m_region (LorawanMacHelper::EU), m_macMaxReceptionPaths (0), m_customDutyCycle(1.0)
 {
 }
 
@@ -57,6 +57,14 @@ LorawanMacHelper::SetDeviceType (enum DeviceType dt)
 }
 
 void
+LorawanMacHelper::SetDutyCycleCustom (double dutyCycle)
+{
+  NS_LOG_FUNCTION (this);
+
+  m_customDutyCycle = dutyCycle;
+}
+
+void
 LorawanMacHelper::SetAddressGenerator (Ptr<LoraDeviceAddressGenerator> addrGen)
 {
   NS_LOG_FUNCTION (this);
@@ -68,6 +76,13 @@ void
 LorawanMacHelper::SetRegion (enum LorawanMacHelper::Regions region)
 {
   m_region = region;
+}
+
+void
+LorawanMacHelper::SetMacMaxReceptionPaths (int maxReceptionPaths)
+{
+  NS_LOG_FUNCTION (this << maxReceptionPaths);
+  m_macMaxReceptionPaths = maxReceptionPaths;
 }
 
 Ptr<LorawanMac>
@@ -101,6 +116,11 @@ LorawanMacHelper::Create (Ptr<Node> node, Ptr<NetDevice> device) const
             ConfigureForAlohaRegion (edMac);
             break;
           }
+          case LorawanMacHelper::Custom: {
+
+            ConfigureForCustomSituation (edMac);
+            break;
+          }
           default: {
             NS_LOG_ERROR ("This region isn't supported yet!");
             break;
@@ -122,6 +142,10 @@ LorawanMacHelper::Create (Ptr<Node> node, Ptr<NetDevice> device) const
           }
           case LorawanMacHelper::ALOHA: {
             ConfigureForAlohaRegion (gwMac);
+            break;
+          }
+          case LorawanMacHelper::Custom: {
+            ConfigureForCustomSituation (gwMac);
             break;
           }
           default: {
@@ -189,7 +213,9 @@ LorawanMacHelper::ConfigureForAlohaRegion (Ptr<GatewayLorawanMac> gwMac) const
       gwPhy->ResetReceptionPaths ();
 
       int receptionPaths = 0;
-      int maxReceptionPaths = 1;
+      int maxReceptionPaths = 3;
+      if(m_macMaxReceptionPaths > 0 )
+        maxReceptionPaths = m_macMaxReceptionPaths;
       while (receptionPaths < maxReceptionPaths)
         {
           gwPhy->GetObject<GatewayLoraPhy> ()->AddReceptionPath ();
@@ -297,8 +323,11 @@ LorawanMacHelper::ConfigureForEuRegion (Ptr<GatewayLorawanMac> gwMac) const
 
       int receptionPaths = 0;
       int maxReceptionPaths = 8;
+      if(m_macMaxReceptionPaths > 0 )
+        maxReceptionPaths = m_macMaxReceptionPaths;
       while (receptionPaths < maxReceptionPaths)
         {
+          NS_LOG_INFO ("MAC HELPHER : Addition of a reception path");
           gwPhy->GetObject<GatewayLoraPhy> ()->AddReceptionPath ();
           receptionPaths++;
         }
@@ -409,6 +438,8 @@ LorawanMacHelper::ConfigureForSingleChannelRegion (Ptr<GatewayLorawanMac> gwMac)
 
       int receptionPaths = 0;
       int maxReceptionPaths = 8;
+      if(m_macMaxReceptionPaths > 0 )
+        maxReceptionPaths = m_macMaxReceptionPaths;
       while (receptionPaths < maxReceptionPaths)
         {
           gwPhy->GetObject<GatewayLoraPhy> ()->AddReceptionPath ();
@@ -449,6 +480,129 @@ LorawanMacHelper::ApplyCommonSingleChannelConfigurations (Ptr<LorawanMac> lorawa
   lorawanMac->SetMaxAppPayloadForDataRate (
       std::vector<uint32_t>{59, 59, 59, 123, 230, 230, 230, 230});
 }
+
+
+
+  //////////////
+  // Custom //
+  //////////////
+
+
+void
+LorawanMacHelper::ConfigureForCustomSituation (Ptr<ClassAEndDeviceLorawanMac> edMac) const
+{
+  NS_LOG_FUNCTION_NOARGS ();
+
+  ApplyCustomConfigurations (edMac);
+
+  /////////////////////////////////////////////////////
+  // TxPower -> Transmission power in dBm conversion //
+  /////////////////////////////////////////////////////
+  edMac->SetTxDbmForTxPower (std::vector<double>{16, 14, 12, 10, 8, 6, 4, 2});
+
+  ////////////////////////////////////////////////////////////
+  // Matrix to know which DataRate the GW will respond with //
+  ////////////////////////////////////////////////////////////
+  LorawanMac::ReplyDataRateMatrix matrix = {{{{0, 0, 0, 0, 0, 0}},
+                                             {{1, 0, 0, 0, 0, 0}},
+                                             {{2, 1, 0, 0, 0, 0}},
+                                             {{3, 2, 1, 0, 0, 0}},
+                                             {{4, 3, 2, 1, 0, 0}},
+                                             {{5, 4, 3, 2, 1, 0}},
+                                             {{6, 5, 4, 3, 2, 1}},
+                                             {{7, 6, 5, 4, 3, 2}}}};
+  edMac->SetReplyDataRateMatrix (matrix);
+
+  /////////////////////
+  // Preamble length //
+  /////////////////////
+  edMac->SetNPreambleSymbols (8);
+
+  //////////////////////////////////////
+  // Second receive window parameters //
+  //////////////////////////////////////
+  edMac->SetSecondReceiveWindowDataRate (0);
+  edMac->SetSecondReceiveWindowFrequency (869.525);
+}
+
+void
+LorawanMacHelper::ConfigureForCustomSituation (Ptr<GatewayLorawanMac> gwMac) const
+{
+  NS_LOG_FUNCTION_NOARGS ();
+
+  ///////////////////////////////
+  // ReceivePath configuration //
+  ///////////////////////////////
+  Ptr<GatewayLoraPhy> gwPhy =
+      gwMac->GetDevice ()->GetObject<LoraNetDevice> ()->GetPhy ()->GetObject<GatewayLoraPhy> ();
+
+  ApplyCustomConfigurations (gwMac);
+
+  if (gwPhy) // If cast is successful, there's a GatewayLoraPhy
+    {
+      NS_LOG_DEBUG ("Resetting reception paths");
+      gwPhy->ResetReceptionPaths ();
+
+      std::vector<double> frequencies;
+      frequencies.push_back (868.1);
+
+      for (auto &f : frequencies)
+        {
+          gwPhy->AddFrequency (f);
+        }
+
+      int receptionPaths = 0;
+      int maxReceptionPaths = 8;
+      if(m_macMaxReceptionPaths > 0 )
+        maxReceptionPaths = m_macMaxReceptionPaths;
+      while (receptionPaths < maxReceptionPaths)
+        {
+          gwPhy->GetObject<GatewayLoraPhy> ()->AddReceptionPath ();
+          receptionPaths++;
+        }
+    }
+}
+
+void
+LorawanMacHelper::ApplyCustomConfigurations (Ptr<LorawanMac> lorawanMac) const
+{
+  NS_LOG_FUNCTION_NOARGS ();
+
+  //////////////
+  // SubBands //
+  //////////////
+
+  LogicalLoraChannelHelper channelHelper;
+  channelHelper.AddSubBand (868, 868.6, m_customDutyCycle , 14);
+
+  //////////////////////
+  // Default channels //
+  //////////////////////
+  Ptr<LogicalLoraChannel> lc1 = CreateObject<LogicalLoraChannel> (868.1, 0, 5);
+  channelHelper.AddChannel (lc1);
+
+  lorawanMac->SetLogicalLoraChannelHelper (channelHelper);
+
+  ///////////////////////////////////////////////
+  // DataRate -> SF, DataRate -> Bandwidth     //
+  // and DataRate -> MaxAppPayload conversions //
+  ///////////////////////////////////////////////
+  lorawanMac->SetSfForDataRate (std::vector<uint8_t>{12, 11, 10, 9, 8, 7, 7});
+  lorawanMac->SetBandwidthForDataRate (
+      std::vector<double>{125000, 125000, 125000, 125000, 125000, 125000, 250000});
+  lorawanMac->SetMaxAppPayloadForDataRate (
+      std::vector<uint32_t>{59, 59, 59, 123, 230, 230, 230, 230});
+}
+
+
+
+
+
+
+
+
+
+
 
 std::vector<int>
 LorawanMacHelper::SetSpreadingFactorsUp (NodeContainer endDevices, NodeContainer gateways,

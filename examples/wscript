@@ -14,11 +14,20 @@ def build(bld):
     obj = bld.create_ns3_program('adr-example', ['lorawan'])
     obj.source = 'adr-example.cc'
 
-    obj = bld.create_ns3_program('energy-model-example', ['lorawan'])
-    obj.source = 'energy-model-example.cc'
+    obj = bld.create_ns3_program('lorawan-energy-model-example', ['lorawan'])
+    obj.source = 'lorawan-energy-model-example.cc'
 
     obj = bld.create_ns3_program('aloha-throughput', ['lorawan'])
     obj.source = 'aloha-throughput.cc'
+
+    obj = bld.create_ns3_program('myTestLoRaWAN', ['lorawan'])
+    obj.source = 'myTestLoRaWAN.cc'
+
+    obj = bld.create_ns3_program('LoRaTest', ['lorawan'])
+    obj.source = 'LoRaTest.cc'
+
+    obj = bld.create_ns3_program('LoRaTestAllSF', ['lorawan'])
+    obj.source = 'LoRaTestAllSF.cc'
 
     obj = bld.create_ns3_program('parallel-reception-example', ['lorawan'])
     obj.source = 'parallel-reception-example.cc'
