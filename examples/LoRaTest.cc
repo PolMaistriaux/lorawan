@@ -35,7 +35,7 @@ using namespace lorawan;
 NS_LOG_COMPONENT_DEFINE ("AlohaThroughput");
 
 // Network settings
-int nDevices = 250;
+int nDevices = 500;
 int nGateways = 1;
 int packetSize = 50;
 double radius = 6250;
