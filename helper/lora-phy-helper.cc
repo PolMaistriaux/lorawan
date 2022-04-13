@@ -27,7 +27,7 @@ namespace lorawan {
 
 NS_LOG_COMPONENT_DEFINE ("LoraPhyHelper");
 
-LoraPhyHelper::LoraPhyHelper () : m_maxReceptionPaths (8), m_txPriority (true)
+LoraPhyHelper::LoraPhyHelper () : m_maxReceptionPaths (8), m_txPriority (true), simulateDownLink(true)
 {
   NS_LOG_FUNCTION (this);
 }
@@ -118,7 +118,8 @@ LoraPhyHelper::Create (Ptr<Node> node, Ptr<NetDevice> device) const
       // Gateways, and it will not lose time delivering packets and interference
       // information to devices which will never listen.
 
-      //m_channel->Add (phy);
+      if(simulateDownLink)
+        m_channel->Add (phy);
     }
 
   // Link the PHY to its net device
@@ -138,6 +139,11 @@ void
 LoraPhyHelper::SetGatewayTransmissionPriority (bool txPriority)
 {
   m_txPriority = txPriority;
+}
+
+void 
+LoraPhyHelper::SetSimulateDownLink (bool value){
+  simulateDownLink = value;
 }
 } // namespace lorawan
 } // namespace ns3

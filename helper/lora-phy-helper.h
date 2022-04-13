@@ -62,6 +62,10 @@ public:
    */
   void SetChannel (Ptr<LoraChannel> channel);
 
+ 
+
+  void SetSimulateDownLink (bool value);
+
   /**
    * Set the kind of PHY this helper will create.
    *
@@ -124,6 +128,11 @@ private:
    * If giving priority to downlink transmission over reception at the gateways
    */
   bool m_txPriority;
+
+  /**
+   * If giving priority to downlink transmission over reception at the gateways
+   */
+  bool simulateDownLink;
 
 };
 
