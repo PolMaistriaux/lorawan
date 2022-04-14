@@ -36,12 +36,12 @@ using namespace lorawan;
 
 // Network settings
 int sensing_radius = 100;
-int nGateways = 1;
+int nGateways = 2;
 int packetSize = 50;
 double radius = 1200;
 double simulationTime = 3600;
 double appPeriod = 50;
-int logProfile = 1;
+int logProfile = 0;
 int maxReceptionPaths = 8;
 
 // Channel model
@@ -62,6 +62,8 @@ int packetsNoMoreDemod =0;
 int packetsEndRec =0;
 int packetsRecPHY =0;
 int packetsRecMAC =0;
+int packetsRecNetwork = 0;
+int packetsRecNewNetwork = 0;
 
 void
 OnPacketSentApp (Ptr<Packet const> packet)
@@ -171,10 +173,25 @@ OnPacketRecMAC (Ptr<Packet const> packet)
   packetsRecMAC++;
 }
 
+void
+OnPacketRecNetwork (Ptr<Packet const> packet)
+{
+  NS_LOG_FUNCTION (packet);
+  packetsRecNetwork++;
+}
+
+void
+OnPacketRecNewNetwork (Ptr<Packet const> packet)
+{
+  NS_LOG_FUNCTION (packet);
+  packetsRecNewNetwork++;
+}
+
 int main (int argc, char *argv[])
 {
+  std::cout<< "azr" <<std::endl;
   std::string interferenceMatrix = "aloha";
-  
+
   CommandLine cmd;
   cmd.AddValue ("sensing_radius", "Sensing radius of sensor nodes", sensing_radius);
   cmd.AddValue ("simulationTime", "Simulation Time", simulationTime);
@@ -183,6 +200,7 @@ int main (int argc, char *argv[])
   cmd.AddValue ("logProfile", "Only track sent and received packet", logProfile);
   cmd.AddValue ("packetSize", "Payload size if the packets", packetSize);
   cmd.AddValue ("maxReceptionPaths", "Number of reception paths", maxReceptionPaths);
+  cmd.AddValue ("nGateways", "Number of reception paths", nGateways);
   cmd.Parse (argc, argv);
 
   //simulationTime = 10*appPeriod;
@@ -393,6 +411,9 @@ int main (int argc, char *argv[])
 
         (*node)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetMac ()->TraceConnectWithoutContext (
         "ReceivedPacket", MakeCallback (OnPacketRecMAC));
+
+        (*node)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetMac ()->TraceConnectWithoutContext (
+        "ReceivedPacket", MakeCallback (OnPacketRecMAC));
       }
     }
  
@@ -419,8 +440,19 @@ int main (int argc, char *argv[])
     }
 
   }
+  std::cout<< "Hi" <<std::endl;
+  /*
+    // Install trace sources
+  for (NodeContainer::Iterator node = networkServer.Begin (); node != networkServer.End(); node++)
+  { 
+      (*node)->GetApplication (0)->GetObject<NetworkServer> ()->TraceConnectWithoutContext (
+      "ReceivedPacket", MakeCallback (OnPacketRecNetwork));
 
+      std::cout<< "Hello1" <<std::endl;
+      (*node)->GetApplication (0)->GetObject<NetworkServer> ()-> GetNetworkStatus() ->TraceConnectWithoutContext (
+      "NewReceivedPacket", MakeCallback (OnPacketRecNewNetwork));
 
+  }*/
 
   std::vector<int> SFdistribution = macHelper.SetSpreadingFactorsUp (endDevices, gateways, channel);
   
@@ -457,7 +489,7 @@ int main (int argc, char *argv[])
 
 
   if(logProfile == 0){
-    std::cout << n << " " << packetsSentApp << " "  << (packetsPostpone+packetsDutyCycle) << " " << packetsSentPhy << " " << packetsNoMoreDemod << " " << packetsInterference  << " " << packetsRecPHY << " ";
+    std::cout << n << " " << packetsSentApp << " "  << (packetsPostpone+packetsDutyCycle) << " " << packetsSentPhy << " " << packetsNoMoreDemod << " " << packetsInterference  << " " << packetsRecPHY << " " << packetsRecNewNetwork << " " ;
   }
   else if(logProfile == 1){
     std::cout << n << " " << packetsSentApp << " " << packetsPostpone << " " << packetsDutyCycle << " " << packetsSentMAC << " " << packetsSentPhy << " " << packetsWrongFreq << " " << packetsWrongSF << " " << packetsBegRec << " " << packetsIsInTx << " " << packetsUnderSensitivity << " " << packetsNoMoreDemod << " " << packetsEndRec << " " << packetsInterference << " " << packetsRecPHY << " " << packetsRecMAC << " ";

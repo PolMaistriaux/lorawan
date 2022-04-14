@@ -89,14 +89,14 @@ private:
   Ptr<LorawanMac> m_mac;
 
   /**
-   * The packet size.
-   */
-  uint8_t m_basePktSize;
-
-  /**
    * Mean number of events per hour
    */
   double m_lambda;
+
+  /**
+   * The packet size.
+   */
+  uint8_t m_basePktSize;
 
   /*
    * The random variable that adds bytes to the packet size
