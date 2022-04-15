@@ -38,10 +38,10 @@ using namespace lorawan;
 int sensing_radius = 100;
 int nGateways = 2;
 int packetSize = 50;
-double radius = 1200;
+double radius = 8000;
 double simulationTime = 3600;
 double appPeriod = 50;
-int logProfile = 0;
+int logProfile = 3;
 int maxReceptionPaths = 8;
 
 // Channel model
@@ -186,6 +186,12 @@ OnPacketRecNewNetwork (Ptr<Packet const> packet)
   NS_LOG_FUNCTION (packet);
   packetsRecNewNetwork++;
 }
+
+uint8_t
+ComputeSF (Ptr<Node> endDevice, NodeContainer gateways, Ptr<LoraChannel> channel) ;
+
+void
+ExportPositions (NodeContainer endDevices, NodeContainer gateways, Ptr<LoraChannel> channel, std::string nameEndDevices , std::string nameGateways , std::string Parameters);
 
 int main (int argc, char *argv[])
 {
@@ -437,56 +443,128 @@ int main (int argc, char *argv[])
   
   std::vector<int> SFdistribution = macHelper.SetSpreadingFactorsUp (endDevices, gateways, channel);
   
+  /////////////////////////////
+  // Print results to stdout //
+  /////////////////////////////
+  NS_LOG_INFO ("Computing performance metrics...");
+  if (logProfile >=2){
+    ExportPositions (endDevices, gateways, channel, "Results_Simu/endDevicesPositions.txt" ,"Results_Simu/gatewaysPositions.txt" , "Results_Simu/parameters.txt");
+  }
+
   ////////////////
   // Simulation //
   ////////////////
 
   Simulator::Stop (Seconds(simulationTime) +Seconds(10));
-  //Simulator::Stop (Seconds(simulationTime+appPeriod));
 
   NS_LOG_INFO ("Running simulation...");
   Simulator::Run ();
 
   Simulator::Destroy ();
-
-  /////////////////////////////
-  // Print results to stdout //
-  /////////////////////////////
-  NS_LOG_INFO ("Computing performance metrics...");
-  
-  // iterate our nodes and print their position.
-  std::ofstream outputFile;
-  // Delete contents of the file as it is opened
-  outputFile.open ("Results_Simu/endDevicesPositions.txt", std::ofstream::out | std::ofstream::trunc);
-  for (NodeContainer::Iterator j = endDevices.Begin (); j != endDevices.End (); ++j)
-    {
-      Ptr<Node> object = *j;
-      Ptr<MobilityModel> position = object->GetObject<MobilityModel> ();
-      NS_ASSERT (position != 0);
-      Vector pos = position->GetPosition ();
-      outputFile << pos.x << " " << pos.y << " " << pos.z << std::endl;
-    }
-  outputFile.close ();
-
-  outputFile.open ("Results_Simu/gatewaysPositions.txt", std::ofstream::out | std::ofstream::trunc);
-  for (NodeContainer::Iterator j = gateways.Begin (); j != gateways.End (); ++j)
-  {
-    Ptr<Node> object = *j;
-    Ptr<MobilityModel> position = object->GetObject<MobilityModel> ();
-    NS_ASSERT (position != 0);
-    Vector pos = position->GetPosition ();
-    std::cout << pos.x << " " << pos.y << " " << pos.z << std::endl;
-  }
-  outputFile.close ();
   
 
   if(logProfile == 0){
     std::cout << n << " " << packetsSentApp << " "  << (packetsPostpone+packetsDutyCycle) << " " << packetsSentPhy << " " << packetsNoMoreDemod << " " << packetsInterference  << " " << packetsRecPHY << " " << packetsRecNewNetwork << " " ;
   }
-  else if(logProfile == 1){
+  else {
     std::cout << n << " " << packetsSentApp << " " << packetsPostpone << " " << packetsDutyCycle << " " << packetsSentMAC << " " << packetsSentPhy << " " << packetsWrongFreq << " " << packetsWrongSF << " " << packetsBegRec << " " << packetsIsInTx << " " << packetsUnderSensitivity << " " << packetsNoMoreDemod << " " << packetsEndRec << " " << packetsInterference << " " << packetsRecPHY << " " << packetsRecMAC << " ";
   }
   std::cout << std::endl;
   return 0;
 
 }
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                  ADDITIONNAL FUNCTIONS                                         //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+uint8_t
+ComputeSF (Ptr<Node> endDevice, NodeContainer gateways, Ptr<LoraChannel> channel)
+{
+  Ptr<MobilityModel> position = endDevice->GetObject<MobilityModel> ();
+  Ptr<NetDevice> netDevice = endDevice->GetDevice (0);
+  Ptr<LoraNetDevice> loraNetDevice = netDevice->GetObject<LoraNetDevice> ();
+  Ptr<EndDeviceLorawanMac> mac =
+      loraNetDevice->GetMac ()->GetObject<EndDeviceLorawanMac> ();
+
+  // Try computing the distance from each gateway and find the best one
+  Ptr<Node> bestGateway = gateways.Get (0);
+  Ptr<MobilityModel> bestGatewayPosition = bestGateway->GetObject<MobilityModel> ();
+
+  // Assume devices transmit at 14 dBm
+  double highestRxPower = channel->GetRxPower (14, position, bestGatewayPosition);
+
+  for (NodeContainer::Iterator currentGw = gateways.Begin () + 1; currentGw != gateways.End ();
+        ++currentGw)
+    {
+      // Compute the power received from the current gateway
+      Ptr<Node> curr = *currentGw;
+      Ptr<MobilityModel> currPosition = curr->GetObject<MobilityModel> ();
+      double currentRxPower = channel->GetRxPower (14, position, currPosition); // dBm
+
+      if (currentRxPower > highestRxPower)
+        {
+          bestGateway = curr;
+          bestGatewayPosition = curr->GetObject<MobilityModel> ();
+          highestRxPower = currentRxPower;
+        }
+    }
+
+  double rxPower = highestRxPower;
+  Ptr<EndDeviceLoraPhy> edPhy = loraNetDevice->GetPhy ()->GetObject<EndDeviceLoraPhy> ();
+  const double *edSensitivity = edPhy->sensitivity;
+
+  if (rxPower > *edSensitivity)
+      return mac->GetSfFromDataRate (5);
+  else if (rxPower > *(edSensitivity + 1))
+      return mac->GetSfFromDataRate (4);
+  else if (rxPower > *(edSensitivity + 2))
+      return mac->GetSfFromDataRate (3);
+  else if (rxPower > *(edSensitivity + 3))
+      return mac->GetSfFromDataRate (2);
+  else if (rxPower > *(edSensitivity + 4))
+      return mac->GetSfFromDataRate (1);
+  else if (rxPower > *(edSensitivity + 5))
+      return mac->GetSfFromDataRate (0);
+  else // Device is out of range. Assign SF12.
+      return 13;
+}
+
+
+
+void
+ExportPositions (NodeContainer endDevices, NodeContainer gateways, Ptr<LoraChannel> channel, std::string nameEndDevices , std::string nameGateways , std::string Parameters)
+{
+// iterate our nodes and print their position.
+std::ofstream outputFile;
+// Delete contents of the file as it is opened
+outputFile.open (nameEndDevices, std::ofstream::out | std::ofstream::trunc);
+for (NodeContainer::Iterator j = endDevices.Begin (); j != endDevices.End (); ++j)
+  {
+    Ptr<Node> object = *j;
+    Ptr<MobilityModel> position = object->GetObject<MobilityModel> ();
+    NS_ASSERT (position != 0);
+    Vector pos = position->GetPosition ();
+    //Ptr<EndDeviceLorawanMac> nodeMac = (*j)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetMac () ->GetObject<EndDeviceLorawanMac> ();
+    uint8_t sf = ComputeSF (object, gateways, channel);
+    outputFile << pos.x << " " << pos.y << " " << pos.z << " " << +sf << std::endl;
+  }
+outputFile.close ();
+
+
+outputFile.open (nameGateways, std::ofstream::out | std::ofstream::trunc);
+for (NodeContainer::Iterator j = gateways.Begin (); j != gateways.End (); ++j)
+{
+  Ptr<Node> object = *j;
+  Ptr<MobilityModel> position = object->GetObject<MobilityModel> ();
+  NS_ASSERT (position != 0);
+  Vector pos = position->GetPosition ();
+  outputFile << pos.x << " " << pos.y << " " << pos.z << std::endl;
+}
+outputFile.close ();
+
+outputFile.open (Parameters, std::ofstream::out | std::ofstream::trunc);
+outputFile << radius << " " << sensing_radius<< " " << std::endl;
+outputFile.close ();
+}       
