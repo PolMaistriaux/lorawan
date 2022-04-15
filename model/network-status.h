@@ -27,6 +27,7 @@
 #include "ns3/gateway-status.h"
 #include "ns3/lora-device-address.h"
 #include "ns3/network-scheduler.h"
+#include "ns3/log.h"
 
 #include <iterator>
 
@@ -117,6 +118,10 @@ public:
 public:
   std::map<LoraDeviceAddress, Ptr<EndDeviceStatus>> m_endDeviceStatuses;
   std::map<Address, Ptr<GatewayStatus>> m_gatewayStatuses;
+
+protected:
+
+  TracedCallback<Ptr<const Packet>> m_receivedNewPacket;
 };
 
 } // namespace lorawan

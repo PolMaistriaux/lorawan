@@ -10,7 +10,6 @@ set(base_examples
     myTestLoRaWAN
     LoRaTest
     LoRaTestAllSF
-    SensingGridLoRa
     SensingGridLoRaPoisson
 )
 

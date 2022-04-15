@@ -189,7 +189,6 @@ OnPacketRecNewNetwork (Ptr<Packet const> packet)
 
 int main (int argc, char *argv[])
 {
-  std::cout<< "azr" <<std::endl;
   std::string interferenceMatrix = "aloha";
 
   CommandLine cmd;
@@ -234,30 +233,14 @@ int main (int argc, char *argv[])
   // Mobility
 
   NodeContainer endDevices;
-  
-  SensingGridPositionAllocator positionAllocator = SensingGridPositionAllocator();
-  positionAllocator.SetRadius(radius);
-  positionAllocator.SetSensingRadius(sensing_radius);
-  positionAllocator.SetZ(5.0);
-  positionAllocator.Initialize();
 
-
-  // each object will be attached a static position.
-  // i.e., once set by the "position allocator", the
-  // position will never change.
-  ObjectFactory m_mobility;
-  m_mobility.SetTypeId ("ns3::ConstantPositionMobilityModel");
-
-  while(positionAllocator.HasNext()){
-    Ptr<Object> object = CreateObject<Node> ();
-    Ptr<MobilityModel> model = m_mobility.Create ()->GetObject<MobilityModel> ();
-    object->AggregateObject (model);
-
-    Vector position = positionAllocator.GetNext ();
-    model->SetPosition (position);
-    endDevices.Add(object->GetObject<Node> ());
-  }
-  int n = positionAllocator.GetN();
+  Ptr<SensingGridPositionAllocator> positionAllocator =CreateObject< SensingGridPositionAllocator>(radius,sensing_radius, 5);
+  int n = positionAllocator->GetN();
+  MobilityHelper mobility;
+  mobility.SetPositionAllocator (positionAllocator);
+  mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+  endDevices.Create (n);
+  mobility.Install (endDevices);
 
   /************************
    *  Create the channel  *
@@ -282,6 +265,7 @@ int main (int argc, char *argv[])
 
   Ptr<LoraChannel> channel = CreateObject<LoraChannel> (loss, delay);
 
+  
   /************************
    *  Create the helpers  *
    ************************/
@@ -299,7 +283,7 @@ int main (int argc, char *argv[])
 
   // Create the LoraHelper
   LoraHelper helper = LoraHelper ();
-  helper.EnablePacketTracking (); // Output filename
+  //helper.EnablePacketTracking (); // Output filename
 
   //Create the NetworkServerHelper
   NetworkServerHelper nsHelper = NetworkServerHelper ();
@@ -333,7 +317,6 @@ int main (int argc, char *argv[])
   gateways.Create (nGateways);
 
     // Mobility
-  MobilityHelper mobility;
   Ptr<ListPositionAllocator> allocator = CreateObject<ListPositionAllocator> ();
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   // Make it so that nodes are at a certain height > 0
@@ -440,20 +423,18 @@ int main (int argc, char *argv[])
     }
 
   }
-  std::cout<< "Hi" <<std::endl;
-  /*
-    // Install trace sources
+  
+  // Install trace sources
   for (NodeContainer::Iterator node = networkServer.Begin (); node != networkServer.End(); node++)
   { 
       (*node)->GetApplication (0)->GetObject<NetworkServer> ()->TraceConnectWithoutContext (
       "ReceivedPacket", MakeCallback (OnPacketRecNetwork));
 
-      std::cout<< "Hello1" <<std::endl;
-      (*node)->GetApplication (0)->GetObject<NetworkServer> ()-> GetNetworkStatus() ->TraceConnectWithoutContext (
+      (*node)->GetApplication (0)->GetObject<NetworkServer> ()-> GetNetworkStatus()->TraceConnectWithoutContext (
       "NewReceivedPacket", MakeCallback (OnPacketRecNewNetwork));
 
-  }*/
-
+  }
+  
   std::vector<int> SFdistribution = macHelper.SetSpreadingFactorsUp (endDevices, gateways, channel);
   
   ////////////////
@@ -472,12 +453,12 @@ int main (int argc, char *argv[])
   // Print results to stdout //
   /////////////////////////////
   NS_LOG_INFO ("Computing performance metrics...");
-  /*
+  
   // iterate our nodes and print their position.
   std::ofstream outputFile;
   // Delete contents of the file as it is opened
-  outputFile.open ("Results_Simu/positions.txt", std::ofstream::out | std::ofstream::trunc);
-  for (NodeContainer::Iterator j = nodes.Begin (); j != nodes.End (); ++j)
+  outputFile.open ("Results_Simu/endDevicesPositions.txt", std::ofstream::out | std::ofstream::trunc);
+  for (NodeContainer::Iterator j = endDevices.Begin (); j != endDevices.End (); ++j)
     {
       Ptr<Node> object = *j;
       Ptr<MobilityModel> position = object->GetObject<MobilityModel> ();
@@ -485,8 +466,19 @@ int main (int argc, char *argv[])
       Vector pos = position->GetPosition ();
       outputFile << pos.x << " " << pos.y << " " << pos.z << std::endl;
     }
-    outputFile.close ();*/
+  outputFile.close ();
 
+  outputFile.open ("Results_Simu/gatewaysPositions.txt", std::ofstream::out | std::ofstream::trunc);
+  for (NodeContainer::Iterator j = gateways.Begin (); j != gateways.End (); ++j)
+  {
+    Ptr<Node> object = *j;
+    Ptr<MobilityModel> position = object->GetObject<MobilityModel> ();
+    NS_ASSERT (position != 0);
+    Vector pos = position->GetPosition ();
+    std::cout << pos.x << " " << pos.y << " " << pos.z << std::endl;
+  }
+  outputFile.close ();
+  
 
   if(logProfile == 0){
     std::cout << n << " " << packetsSentApp << " "  << (packetsPostpone+packetsDutyCycle) << " " << packetsSentPhy << " " << packetsNoMoreDemod << " " << packetsInterference  << " " << packetsRecPHY << " " << packetsRecNewNetwork << " " ;

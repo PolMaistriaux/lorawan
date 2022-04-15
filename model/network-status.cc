@@ -41,8 +41,13 @@ TypeId
 NetworkStatus::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::NetworkStatus")
+    .SetParent<Object> ()
     .AddConstructor<NetworkStatus> ()
-    .SetGroupName ("lorawan");
+    .SetGroupName ("lorawan")
+    .AddTraceSource ("NewReceivedPacket",
+                  "Trace source new packet arrives at Network Server",
+                  MakeTraceSourceAccessor (&NetworkStatus::m_receivedNewPacket),
+                  "ns3::Packet::TracedCallback");
   return tid;
 }
 
@@ -113,7 +118,12 @@ NetworkStatus::OnReceivedPacket (Ptr<const Packet> packet,
   // Update the correct EndDeviceStatus object
   LoraDeviceAddress edAddr = frameHdr.GetAddress ();
   NS_LOG_DEBUG ("Node address: " << edAddr);
-  m_endDeviceStatuses.at (edAddr)->InsertReceivedPacket (packet, gwAddress);
+  Ptr<EndDeviceStatus> endDStatus =  m_endDeviceStatuses.at (edAddr);
+  endDStatus ->InsertReceivedPacket (packet, gwAddress);
+  if(endDStatus->GetLastReceivedPacketInfo ().gwList.size () == 1){
+    //Message received for the first time
+    m_receivedNewPacket (myPacket);
+  }
 }
 
 bool
