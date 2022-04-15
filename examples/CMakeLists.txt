@@ -11,6 +11,7 @@ set(base_examples
     LoRaTest
     LoRaTestAllSF
     SensingGridLoRaPoisson
+    SensingCircleLoRaPoisson
 )
 
 foreach(

@@ -16,7 +16,6 @@
 #include "ns3/node-container.h"
 #include "ns3/mobility-helper.h"
 #include "ns3/position-allocator.h"
-#include "ns3/sensing-field-position-allocator.h"
 #include "ns3/double.h"
 #include "ns3/random-variable-stream.h"
 #include "ns3/periodic-sender-helper.h"
@@ -36,13 +35,12 @@ using namespace lorawan;
 
 
 // Network settings
-int sensing_radius = 200;
+int sensing_radius = 100;
+int nGateways = 2;
 int packetSize = 50;
-double range = 6350;
-double fieldSizeX = 30000;
-double fieldSizeY = 30000;
+double radius = 8000;
 double simulationTime = 3600;
-double lambda = 2;
+double appPeriod = 50;
 int logProfile = 3;
 int maxReceptionPaths = 8;
 
@@ -202,15 +200,15 @@ int main (int argc, char *argv[])
   CommandLine cmd;
   cmd.AddValue ("sensing_radius", "Sensing radius of sensor nodes", sensing_radius);
   cmd.AddValue ("simulationTime", "Simulation Time", simulationTime);
-  cmd.AddValue ("fieldSizeX", "Field size in x", fieldSizeX);
-  cmd.AddValue ("fieldSizeY", "Field size in y", fieldSizeY);
-  cmd.AddValue ("range", "range of the gateway", range);
-  cmd.AddValue ("lambda", "Mean number of packets per Hour", lambda);
+  cmd.AddValue ("radius", "Radius of the deployment", radius);
+  cmd.AddValue ("appPeriod", "Time in seconds between two packet at a node", appPeriod);
   cmd.AddValue ("logProfile", "Only track sent and received packet", logProfile);
   cmd.AddValue ("packetSize", "Payload size if the packets", packetSize);
   cmd.AddValue ("maxReceptionPaths", "Number of reception paths", maxReceptionPaths);
+  cmd.AddValue ("nGateways", "Number of reception paths", nGateways);
   cmd.Parse (argc, argv);
 
+  //simulationTime = 10*appPeriod;
   // Set up logging
   //LogComponentEnable ("AlohaThroughput", LOG_LEVEL_ALL);
   //LogComponentEnable ("LoraInterferenceHelper", LOG_LEVEL_ERROR);
@@ -242,12 +240,12 @@ int main (int argc, char *argv[])
 
   NodeContainer endDevices;
 
-  Ptr<RectangleFieldSensingPositionAllocator> positionAllocatorEndDevices =CreateObject<RectangleFieldSensingPositionAllocator>(fieldSizeX,fieldSizeY,sensing_radius, 5);
-  int nEndDevices = positionAllocatorEndDevices->GetN();
+  Ptr<SensingGridPositionAllocator> positionAllocator =CreateObject< SensingGridPositionAllocator>(radius,sensing_radius, 5);
+  int n = positionAllocator->GetN();
   MobilityHelper mobility;
-  mobility.SetPositionAllocator (positionAllocatorEndDevices);
+  mobility.SetPositionAllocator (positionAllocator);
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
-  endDevices.Create (nEndDevices);
+  endDevices.Create (n);
   mobility.Install (endDevices);
 
   /************************
@@ -322,14 +320,15 @@ int main (int argc, char *argv[])
 
   // Create the gateway nodes (allocate them uniformely on the disc)
   NodeContainer gateways;
-
-  Ptr<RectangleFieldGatewayPositionAllocator> positionAllocatorGateways =CreateObject<RectangleFieldGatewayPositionAllocator>(fieldSizeX,fieldSizeY,range, 15);
-  int nGateways = positionAllocatorGateways->GetN();
-  mobility.SetPositionAllocator (positionAllocatorGateways);
-  mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   gateways.Create (nGateways);
-  mobility.Install (gateways);
 
+    // Mobility
+  Ptr<ListPositionAllocator> allocator = CreateObject<ListPositionAllocator> ();
+  mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+  // Make it so that nodes are at a certain height > 0
+  allocator->Add (Vector (0.0, 0.0, 15.0));
+  mobility.SetPositionAllocator (allocator);
+  mobility.Install (gateways);
 
   // Create a netdevice for each gateway
   phyHelper.SetDeviceType (LoraPhyHelper::GW);
@@ -344,7 +343,7 @@ int main (int argc, char *argv[])
    *********************************************/
   
   RandomTrafficSenderHelper appHelper = RandomTrafficSenderHelper ();
-  appHelper.SetLambda (lambda);
+  appHelper.SetLambda (appPeriod);
   appHelper.SetPacketSize (packetSize);
   ApplicationContainer appContainer = appHelper.Install (endDevices);
   
@@ -402,6 +401,8 @@ int main (int argc, char *argv[])
         (*node)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetMac ()->TraceConnectWithoutContext (
         "ReceivedPacket", MakeCallback (OnPacketRecMAC));
 
+        (*node)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetMac ()->TraceConnectWithoutContext (
+        "ReceivedPacket", MakeCallback (OnPacketRecMAC));
       }
     }
  
@@ -463,10 +464,10 @@ int main (int argc, char *argv[])
   
 
   if(logProfile == 0){
-    std::cout << nEndDevices << " " << nGateways << " " << packetsSentApp << " "  << (packetsPostpone+packetsDutyCycle) << " " << packetsSentPhy << " " << packetsNoMoreDemod << " " << packetsInterference  << " " << packetsRecPHY << " " << packetsRecNewNetwork << " " ;
+    std::cout << n << " " << packetsSentApp << " "  << (packetsPostpone+packetsDutyCycle) << " " << packetsSentPhy << " " << packetsNoMoreDemod << " " << packetsInterference  << " " << packetsRecPHY << " " << packetsRecNewNetwork << " " ;
   }
   else {
-    std::cout << nEndDevices << " " << nGateways << " " << packetsSentApp << " " << packetsPostpone << " " << packetsDutyCycle << " " << packetsSentMAC << " " << packetsSentPhy << " " << packetsWrongFreq << " " << packetsWrongSF << " " << packetsBegRec << " " << packetsIsInTx << " " << packetsUnderSensitivity << " " << packetsNoMoreDemod << " " << packetsEndRec << " " << packetsInterference << " " << packetsRecPHY << " " << packetsRecMAC << " ";
+    std::cout << n << " " << packetsSentApp << " " << packetsPostpone << " " << packetsDutyCycle << " " << packetsSentMAC << " " << packetsSentPhy << " " << packetsWrongFreq << " " << packetsWrongSF << " " << packetsBegRec << " " << packetsIsInTx << " " << packetsUnderSensitivity << " " << packetsNoMoreDemod << " " << packetsEndRec << " " << packetsInterference << " " << packetsRecPHY << " " << packetsRecMAC << " ";
   }
   std::cout << std::endl;
   return 0;
@@ -564,6 +565,6 @@ for (NodeContainer::Iterator j = gateways.Begin (); j != gateways.End (); ++j)
 outputFile.close ();
 
 outputFile.open (Parameters, std::ofstream::out | std::ofstream::trunc);
-outputFile << range << " " << sensing_radius << " " << fieldSizeX << " " << fieldSizeY << " " << std::endl;
+outputFile << radius << " " << sensing_radius<< " " << std::endl;
 outputFile.close ();
 }       
