@@ -47,6 +47,7 @@ set(source_files
     helper/forwarder-helper.cc
     helper/network-server-helper.cc
     helper/lora-packet-tracker.cc
+    helper/lora-my-tracker.cc
     helper/random-traffic-sender-helper.cc
 )
 
@@ -99,6 +100,7 @@ set(header_files
     helper/forwarder-helper.h
     helper/network-server-helper.h
     helper/lora-packet-tracker.h
+    helper/lora-my-tracker.h
     helper/random-traffic-sender-helper.h
     test/utilities.h
 )

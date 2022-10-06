@@ -13,6 +13,7 @@
 #include "ns3/pointer.h"
 #include "ns3/constant-position-mobility-model.h"
 #include "ns3/lora-helper.h"
+#include "ns3/lora-my-tracker.h"
 #include "ns3/node-container.h"
 #include "ns3/mobility-helper.h"
 #include "ns3/position-allocator.h"
@@ -31,163 +32,24 @@
 #include <algorithm>
 #include <ctime>
 
+
 using namespace ns3;
 using namespace lorawan;
 
 
 // Network settings
-int sensing_radius = 200;
+int sensing_radius = 1500;
 int packetSize = 50;
-double range = 6350;
-double fieldSizeX = 30000;
-double fieldSizeY = 30000;
+double range = 5000;
+double fieldSizeX = 10000;
+double fieldSizeY = 10000;
 double simulationTime = 3600;
 double lambda = 2;
-int logProfile = 3;
+int logPositions = 1;
 int maxReceptionPaths = 8;
 
 // Channel model
 bool realisticChannelModel = false;
-
-int packetsSentApp =0;
-int packetsPostpone =0;
-int packetsDutyCycle =0;
-int packetsSentMAC =0;
-int packetsSentPhy =0;
-int packetsWrongFreq =0;
-int packetsWrongSF =0;
-int packetsInterference =0;
-int packetsBegRec =0;
-int packetsUnderSensitivity =0;
-int packetsIsInTx =0;
-int packetsNoMoreDemod =0;
-int packetsEndRec =0;
-int packetsRecPHY =0;
-int packetsRecMAC =0;
-int packetsRecNetwork = 0;
-int packetsRecNewNetwork = 0;
-
-void
-OnPacketSentApp (Ptr<Packet const> packet)
-{
-  NS_LOG_FUNCTION (packet);
-  packetsSentApp++;
-}
-
-void
-OnPacketPostpone (Ptr<Packet const> packet)
-{
-  NS_LOG_FUNCTION (packet);
-  packetsPostpone++;
-}
-
-void
-OnPacketDutyCycle (Ptr<Packet const> packet)
-{
-  NS_LOG_FUNCTION (packet);
-  packetsDutyCycle++;
-}
-
-void
-OnPacketSentMAC (Ptr<Packet const> packet)
-{
-  NS_LOG_FUNCTION (packet);
-  packetsSentMAC++;
-}
-
-void
-OnPacketSentPHY (Ptr<Packet const> packet, uint32_t systemId)
-{
-  NS_LOG_FUNCTION (packet << systemId);
-  packetsSentPhy++;
-}
-
-void
-OnPacketWrongFreq (Ptr<Packet const> packet, uint32_t systemId)
-{
-  NS_LOG_FUNCTION (packet << systemId);
-  packetsWrongFreq++;
-}
-
-void
-OnPacketWrongSF (Ptr<Packet const> packet, uint32_t systemId)
-{
-  NS_LOG_FUNCTION (packet << systemId);
-  packetsWrongSF++;
-}
-
-void
-OnPacketBegRec (Ptr<Packet const> packet)
-{
-  NS_LOG_FUNCTION (packet);
-  packetsBegRec++;
-}
-
-void
-OnPacketIsInTxCallback (Ptr<Packet const> packet, uint32_t systemId)
-{
-  NS_LOG_FUNCTION (packet << systemId);
-  packetsIsInTx++;
-}
-
-void
-OnPacketUnderSensitivityCallback (Ptr<Packet const> packet, uint32_t systemId)
-{
-  NS_LOG_FUNCTION (packet << systemId);
-  packetsUnderSensitivity++;
-}
-
-void
-OnPacketNoMoreDemod (Ptr<Packet const> packet, uint32_t systemId)
-{
-  NS_LOG_FUNCTION (packet << systemId);
-  packetsNoMoreDemod++;
-}
-
-void
-OnPacketEndRec(Ptr<Packet const> packet)
-{
-  NS_LOG_FUNCTION (packet);
-  packetsEndRec++;
-}
-
-void
-OnPacketInterferenceCallback (Ptr<Packet const> packet, uint32_t systemId)
-{
-  NS_LOG_FUNCTION (packet << systemId);
-  packetsInterference++;
-}
-
-
-
-void
-OnPacketRecPHY (Ptr<Packet const> packet, uint32_t systemId)
-{
-  NS_LOG_FUNCTION (packet << systemId);
-  packetsRecPHY++;
-}
-
-
-void
-OnPacketRecMAC (Ptr<Packet const> packet)
-{
-  NS_LOG_FUNCTION (packet);
-  packetsRecMAC++;
-}
-
-void
-OnPacketRecNetwork (Ptr<Packet const> packet)
-{
-  NS_LOG_FUNCTION (packet);
-  packetsRecNetwork++;
-}
-
-void
-OnPacketRecNewNetwork (Ptr<Packet const> packet)
-{
-  NS_LOG_FUNCTION (packet);
-  packetsRecNewNetwork++;
-}
 
 uint8_t
 ComputeSF (Ptr<Node> endDevice, NodeContainer gateways, Ptr<LoraChannel> channel) ;
@@ -206,7 +68,7 @@ int main (int argc, char *argv[])
   cmd.AddValue ("fieldSizeY", "Field size in y", fieldSizeY);
   cmd.AddValue ("range", "range of the gateway", range);
   cmd.AddValue ("lambda", "Mean number of packets per Hour", lambda);
-  cmd.AddValue ("logProfile", "Only track sent and received packet", logProfile);
+  cmd.AddValue ("logPositions", "Only track sent and received packet", logPositions);
   cmd.AddValue ("packetSize", "Payload size if the packets", packetSize);
   cmd.AddValue ("maxReceptionPaths", "Number of reception paths", maxReceptionPaths);
   cmd.Parse (argc, argv);
@@ -367,86 +229,21 @@ int main (int argc, char *argv[])
   //Create a forwarder for each gateway
   forHelper.Install (gateways);
   
-  // Install trace sources
-  for (NodeContainer::Iterator node = gateways.Begin (); node != gateways.End(); node++)
-  {
-   
-    (*node)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetPhy ()->TraceConnectWithoutContext (
-          "LostPacketBecauseInterference", MakeCallback (OnPacketInterferenceCallback));
-
-    (*node)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetPhy ()->TraceConnectWithoutContext (
-        "LostPacketBecauseNoMoreReceivers", MakeCallback (OnPacketNoMoreDemod));
+  // Tracker installation
   
-    (*node)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetPhy ()->TraceConnectWithoutContext (
-        "ReceivedPacket", MakeCallback (OnPacketRecPHY));
-
-      if (logProfile >0){
-        (*node)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetPhy ()->TraceConnectWithoutContext (
-        "LostPacketBecauseWrongFrequency", MakeCallback (OnPacketWrongFreq));
-
-        (*node)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetPhy ()->TraceConnectWithoutContext (
-        "LostPacketBecauseWrongSpreadingFactor", MakeCallback (OnPacketWrongSF));
-
-        (*node)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetPhy ()->TraceConnectWithoutContext (
-        "PhyRxBegin", MakeCallback (OnPacketBegRec));
-
-        (*node)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetPhy ()->TraceConnectWithoutContext (
-        "NoReceptionBecauseTransmitting", MakeCallback (OnPacketIsInTxCallback));
-
-        (*node)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetPhy ()->TraceConnectWithoutContext (
-          "LostPacketBecauseUnderSensitivity", MakeCallback (OnPacketUnderSensitivityCallback));
-
-        (*node)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetPhy ()->TraceConnectWithoutContext (
-        "PhyRxEnd", MakeCallback (OnPacketEndRec));
-
-        (*node)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetMac ()->TraceConnectWithoutContext (
-        "ReceivedPacket", MakeCallback (OnPacketRecMAC));
-
-      }
-    }
- 
-
-  // Install trace sources
-  for (NodeContainer::Iterator node = endDevices.Begin (); node != endDevices.End(); node++)
-  {
-
-    (*node)->GetApplication (0)->GetObject<RandomTrafficSender> ()->TraceConnectWithoutContext (
-      "RandomSentMessage", MakeCallback (OnPacketSentApp));
-
-    (*node)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetMac ()->TraceConnectWithoutContext (
-          "PostponeTransmission", MakeCallback (OnPacketPostpone));
-
-    (*node)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetMac ()->TraceConnectWithoutContext (
-          "CannotSendBecauseDutyCycle", MakeCallback (OnPacketDutyCycle));
-
-    (*node)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetPhy ()->TraceConnectWithoutContext (
-        "StartSending", MakeCallback (OnPacketSentPHY));
-
-    if (logProfile >0){
-        (*node)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetMac ()->TraceConnectWithoutContext (
-        "SentNewPacket", MakeCallback (OnPacketSentMAC));
-    }
-
-  }
-  
-  // Install trace sources
-  for (NodeContainer::Iterator node = networkServer.Begin (); node != networkServer.End(); node++)
-  { 
-      (*node)->GetApplication (0)->GetObject<NetworkServer> ()->TraceConnectWithoutContext (
-      "ReceivedPacket", MakeCallback (OnPacketRecNetwork));
-
-      (*node)->GetApplication (0)->GetObject<NetworkServer> ()-> GetNetworkStatus()->TraceConnectWithoutContext (
-      "NewReceivedPacket", MakeCallback (OnPacketRecNewNetwork));
-
-  }
-  
+  LoRaMyTracker packetTracker = LoRaMyTracker();
+  std::vector<MyTracker> toTrack = {RandomSentMessage, PostponeTransmission, StartSending,LostPacketBecauseNoMoreReceivers, LostPacketBecauseInterference,ReceivedPacketPHY,  NewReceivedPacket};
+  packetTracker.SetTrackerList(toTrack);
+  packetTracker.SetupTrackerEndDevices(endDevices);
+  packetTracker.SetupTrackerGateways(gateways);
+  packetTracker.SetupTrackerNetworkServer(networkServer);
   std::vector<int> SFdistribution = macHelper.SetSpreadingFactorsUp (endDevices, gateways, channel);
   
   /////////////////////////////
   // Print results to stdout //
   /////////////////////////////
   NS_LOG_INFO ("Computing performance metrics...");
-  if (logProfile >=2){
+  if (logPositions ==1){
     ExportPositions (endDevices, gateways, channel, "Results_Simu/endDevicesPositions.txt" ,"Results_Simu/gatewaysPositions.txt" , "Results_Simu/parameters.txt");
   }
 
@@ -461,14 +258,10 @@ int main (int argc, char *argv[])
 
   Simulator::Destroy ();
   
-
-  if(logProfile == 0){
-    std::cout << nEndDevices << " " << nGateways << " " << packetsSentApp << " "  << (packetsPostpone+packetsDutyCycle) << " " << packetsSentPhy << " " << packetsNoMoreDemod << " " << packetsInterference  << " " << packetsRecPHY << " " << packetsRecNewNetwork << " " ;
-  }
-  else {
-    std::cout << nEndDevices << " " << nGateways << " " << packetsSentApp << " " << packetsPostpone << " " << packetsDutyCycle << " " << packetsSentMAC << " " << packetsSentPhy << " " << packetsWrongFreq << " " << packetsWrongSF << " " << packetsBegRec << " " << packetsIsInTx << " " << packetsUnderSensitivity << " " << packetsNoMoreDemod << " " << packetsEndRec << " " << packetsInterference << " " << packetsRecPHY << " " << packetsRecMAC << " ";
-  }
+  std::cout << nEndDevices << " " << nGateways << " ";
+  packetTracker.PrintTracker ();
   std::cout << std::endl;
+
   return 0;
 
 }
